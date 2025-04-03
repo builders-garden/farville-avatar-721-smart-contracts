@@ -21,6 +21,8 @@ contract FarvilleAvatar is ERC721Royalty, Ownable, Pausable {
 
     /// @notice Error thrown when attempting to mint an already minted address
     error AddressAlreadyMinted();
+    /// @notice Error thrown when attempting to set an invalid metadata operator
+    error InvalidMetadataOperator();
     /// @notice Error thrown when attempting to mint an NFT with an invalid price
     error InvalidPrice();
     /// @notice Error thrown when attempting to mint an NFT with an invalid signature
@@ -43,6 +45,10 @@ contract FarvilleAvatar is ERC721Royalty, Ownable, Pausable {
     /// @dev value set during contract deployment
     uint256 public minPrice;
 
+    /// @notice The address of the metadata operator
+    /// @dev value set during contract deployment
+    address public metadataOperator;
+
     /// @notice The address of the price token
     /// @dev value set during contract deployment
     address public priceToken;
@@ -62,21 +68,29 @@ contract FarvilleAvatar is ERC721Royalty, Ownable, Pausable {
     /// @notice Mapping to track uri for each token ID
     /// @dev Maps token ID to token URI
     mapping(uint256 => string) public tokenURIs;
+
+    /// @notice Modifier to check if the caller is the metadata operator
+    modifier onlyMetadataOperator() {
+        if (msg.sender != metadataOperator) revert InvalidMetadataOperator();
+        _;
+    }
     
     /// @notice Initializes the FarvilleAvatar NFT contract
     /// @dev Sets up the NFT collection with royalty information
     /// @param _initialOwner Address of the contract owner
+    /// @param _metadataOperator Address of the metadata operator
     /// @param _royaltyRecipient Address to receive royalty payments
     /// @param _priceToken The address of the price token
     /// @param _royaltyFee The royalty fee in basis points (e.g., 250 = 2.5%)
     /// @param _minPrice The minimum price of the NFT
     /// @param _priceRecipient The address of the price recipient
     /// @param _contractURIMetadata The contract URI metadata
-    constructor(address _initialOwner, address _royaltyRecipient, address _priceToken, address _priceRecipient, uint96 _royaltyFee, uint256 _minPrice, string memory _contractURIMetadata)
+    constructor(address _initialOwner, address _metadataOperator, address _royaltyRecipient, address _priceToken, address _priceRecipient, uint96 _royaltyFee, uint256 _minPrice, string memory _contractURIMetadata)
         ERC721("FarvilleAvatar", "FVA")
         Ownable(_initialOwner)
     {
         _setDefaultRoyalty(_royaltyRecipient, _royaltyFee);
+        metadataOperator = _metadataOperator;
         minPrice = _minPrice;
         priceToken = _priceToken;
         priceRecipient = _priceRecipient;
@@ -109,25 +123,6 @@ contract FarvilleAvatar is ERC721Royalty, Ownable, Pausable {
         return signer == owner();
     }
 
-    /// @notice Sets the contract URI metadata
-    /// @dev Only the contract owner can set the URI
-    /// @param newContractURIMetadata The new contract URI metadata to set
-    function setContractURIMetadata(string memory newContractURIMetadata) external onlyOwner {
-        contractURIMetadata = newContractURIMetadata;
-        emit ContractURIUpdated();
-    }
-
-    /// @notice Sets the id URI for a given token ID
-    /// @dev Only the contract owner can set the URI
-    /// @param tokenId The ID of the token to set the URI for
-    /// @param tokenIdURI The new URI to set
-    function setTokenURI(uint256 tokenId, string memory tokenIdURI) external onlyOwner {
-        if (bytes(tokenIdURI).length == 0) {
-            revert InvalidTokenURI();
-        }
-        tokenURIs[tokenId] = tokenIdURI;
-    }
-
     /// @notice Pauses all token minting
     /// @dev Only the contract owner can pause
     function pause() external onlyOwner {
@@ -138,6 +133,25 @@ contract FarvilleAvatar is ERC721Royalty, Ownable, Pausable {
     /// @dev Only the contract owner can unpause
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /// @notice Sets the contract URI metadata
+    /// @dev Only the contract owner can set the URI
+    /// @param newContractURIMetadata The new contract URI metadata to set
+    function setContractURIMetadata(string memory newContractURIMetadata) external onlyOwner {
+        contractURIMetadata = newContractURIMetadata;
+        emit ContractURIUpdated();
+    }
+
+    /// @notice Sets the id URI for a given token ID
+    /// @dev Only the metadata operator can set the URI
+    /// @param tokenId The ID of the token to set the URI for
+    /// @param tokenIdURI The new URI to set
+    function setTokenURI(uint256 tokenId, string memory tokenIdURI) external onlyMetadataOperator {
+        if (bytes(tokenIdURI).length == 0) {
+            revert InvalidTokenURI();
+        }
+        tokenURIs[tokenId] = tokenIdURI;
     }
 
     /// @notice Mints a new FarvilleAvatar NFT
