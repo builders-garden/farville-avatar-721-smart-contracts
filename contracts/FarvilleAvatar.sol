@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title FarvilleAvatar NFT Contract
-/// @notice This contract implements the FarvilleAvatar NFT collection with merkle proof verification
+/// @notice This contract implements the FarvilleAvatar NFT collection with signature mint verification
 /// @dev Extends ERC721Royalty and Ownable for NFT functionality with royalties
 contract FarvilleAvatar is ERC721Royalty, Ownable, Pausable {
     using SafeERC20 for IERC20;
@@ -144,19 +144,19 @@ contract FarvilleAvatar is ERC721Royalty, Ownable, Pausable {
     /// @dev Verifies signature before minting
     /// @param tokenId The ID of the token to mint
     /// @param signature The signature to verify eligibility
-    function mint(uint256 tokenId, uint256 price, string memory tokenIdURI, bytes memory signature) external whenNotPaused {
+    function mint(address recipient, uint256 tokenId, uint256 price, string memory tokenIdURI, bytes memory signature) external whenNotPaused {
         if (minted[tokenId]) revert TokenAlreadyMinted();
-        if (hasMinted[msg.sender]) revert AddressAlreadyMinted();
+        if (hasMinted[recipient]) revert AddressAlreadyMinted();
         if (price < minPrice) revert InvalidPrice();
-        if (!validateSignature(msg.sender, tokenId, tokenIdURI, signature)) revert InvalidSignature();
+        if (!validateSignature(recipient, tokenId, tokenIdURI, signature)) revert InvalidSignature();
         // Mark the token ID as minted
         minted[tokenId] = true;
         // Mark the address as minted
-        hasMinted[msg.sender] = true;
-         // Set the token URI
+        hasMinted[recipient] = true;
+        // Set the token URI
         _setTokenURI(tokenId, tokenIdURI);
         // Mint the NFT
-        _safeMint(msg.sender, tokenId);
+        _safeMint(recipient, tokenId);
         // Transfer the price amount to the price recipient
         IERC20(priceToken).safeTransferFrom(msg.sender, priceRecipient, price);
     }
